@@ -4,6 +4,7 @@ QTRSensors qtr;
 const uint8_t SensorCount = 8;
 uint16_t sensorValues[SensorCount];
 
+const int BUTTON = 12;
 
 const int PWMA = 5; // Pin para la señal PWM del motor A
 const int AIN2 = 4; // Pin para la entrada 2 del motor A
@@ -15,9 +16,9 @@ const int BIN2 = 8; // Pin para la entrada 2 del motor B
 const int PWMB = 6; // Pin para la señal PWM del motor B
 
 // Definir las constantes del controlador PID
-float kp = 0.1;  // Ganancia proporcional
+float kp = .2;  // Ganancia proporcional float kp = 0.1;
 //float ki = 0.01; // Ganancia integral
-float kd = 0.05; // Ganancia derivativa
+float kd = .2; // Ganancia derivativa float kd = 0.35;
 
 // Variables para el controlador PID
 float previousError = 0;
@@ -33,11 +34,13 @@ void setup()
   // print the calibration minimum values measured when emitters were on
   Serial.begin(9600);
 
+  pinMode(BUTTON, INPUT);
+
   CalibrateQTR();
   ConfigureMotors();
 }
 
-int lastError = 0;
+bool Activate = false;
 
 void loop()
 {
@@ -48,36 +51,53 @@ void loop()
 
   int error = position - 3600;
 
-  int motorSpeed = kp * error + kd * (error - lastError);
-  lastError = error;
+  int motorSpeed = kp * error + kd * (error - previousError);
+  previousError = error;
 
   int rightMotorSpeed = rightBaseSpeed - motorSpeed;
   int leftMotorSpeed = leftBaseSpeed + motorSpeed;
 
-  // Aplicar la salida del controlador a los motores
-  controlMotorA(constrain(rightMotorSpeed, 0, rightMaxSpeed));
-  controlMotorB(constrain(leftMotorSpeed, 0, leftMaxSpeed));
+     
+    //Switch the motors state
+    int val = digitalRead(BUTTON);
+    Serial.println(val);
+    Serial.println(Activate);
+    if(val == 0){
+      Activate = !Activate;
+      delay(1500);
+      Serial.println(Activate);
+    }
+
+  if(Activate){
+    // Aplicar la salida del controlador a los motores
+    controlMotorA(constrain(rightMotorSpeed, 0, rightMaxSpeed));
+    controlMotorB(constrain(leftMotorSpeed, 0, leftMaxSpeed));
+  }
 }
 
   void controlMotorA(int speed){
+    int fixedSpeed = speed/2.5;
+
     Serial.print("Right: ");
-    Serial.print(speed/3); // Imprime la velocidad
+    Serial.print(fixedSpeed); // Imprime la velocidad
 
     // Gira el motor B en la dirección opuesta durante 2 segundos
     digitalWrite(AIN1, LOW);
     digitalWrite(AIN2, HIGH);
-    analogWrite(PWMA, speed/3); // Velocidad máxima
+    analogWrite(PWMA, fixedSpeed); // Velocidad máxima
   }
 
   void controlMotorB(int speed){
+    int fixedSpeed = speed/2.5;
+
     Serial.print("    -     ");
     Serial.print("Left: ");
-    Serial.println(speed/3);
+    Serial.println(fixedSpeed);
     
     // Gira el motor B en la dirección opuesta durante 2 segundos
     digitalWrite(BIN1, LOW);
     digitalWrite(BIN2, HIGH);
-    analogWrite(PWMB, speed/3); // Velocidad máxima
+    analogWrite(PWMB, fixedSpeed); // Velocidad máxima
   }
 
   void CalibrateQTR(){ 
